@@ -276,5 +276,7 @@ def _schedule_scrape():
 scheduler.add_job(_schedule_scrape, "cron", hour=2, minute=0)
 scheduler.start()
 
-if __name__ == "__main__":
-    mcp.run(transport="sse")
+# ───────── Exportación ASGI ─────────
+# Uvicorn loader busca `app` en server.py
+# noinspection PyUnresolvedReferences
+app = mcp.app
