@@ -7,7 +7,7 @@
   },
   "servers": [
     {
-      "url": "https://TU-DOMINIO"
+      "url": "https://marinas-mcp-app.azurewebsites.net"
     }
   ],
   "paths": {
