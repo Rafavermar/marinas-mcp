@@ -2,6 +2,7 @@ import os
 from datetime import datetime
 import psycopg2
 from psycopg2.extras import RealDictCursor
+from fastapi import FastAPI
 from fastmcp import FastMCP
 from playwright.async_api import async_playwright
 from dotenv import load_dotenv
@@ -30,6 +31,21 @@ async def fetch_html(url: str) -> str:
         html = await page.content()
         await browser.close()
         return html
+
+
+# ───────── FastAPI ─────────
+app = FastAPI(
+    title="Marinas MCP",
+    description="API MCP para scraping de marinas y gestión de HTML histórico",
+    version="1.0.0",
+    docs_url="/docs",
+    openapi_url="/openapi.json",
+)
+
+
+@app.get("/", summary="Health check")
+async def root():
+    return {"status": "ok"}
 
 
 # ───────── MCP ─────────
@@ -257,6 +273,6 @@ def _schedule_scrape():
 
 scheduler.add_job(_schedule_scrape, "cron", hour=2, minute=0)
 scheduler.start()
-# …
+
 if __name__ == "__main__":
     mcp.run(transport="sse")
