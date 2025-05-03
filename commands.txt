@@ -1,0 +1,98 @@
+# ─── Docker Compose: ciclo de vida ────────────────────────
+
+# Levantar todos los servicios en background
+docker-compose up -d
+
+# Reconstruir imágenes y levantar (tras cambios en Dockerfile o código)
+docker-compose up --build -d
+
+# Parar y eliminar contenedores de la aplicación y la BD
+docker-compose down
+
+# Ver estado de los contenedores
+docker-compose ps
+
+# Seguir logs en tiempo real
+docker-compose logs -f db
+docker-compose logs -f app
+
+# ─── Acceso a un shell en los contenedores ─────────────────
+
+# Shell en el contenedor de Postgres
+docker-compose exec db bash
+
+# Shell en el contenedor de la aplicación
+docker-compose exec app bash
+
+# (Alternativa usando nombres de contenedor)
+docker exec -it marinas-db bash
+docker exec -it marinas-app bash
+
+# ─── Postgres: consultas y mantenimiento ──────────────────
+
+# Conectarse con psql dentro del contenedor de db
+psql -U marina_user -d marinasdb
+
+# Listar tablas y esquemas
+\d
+\d+ marinas
+\d+ marinas_history
+
+# Ver un fragmento / longitud de HTML
+SELECT id, length(html_bruto) AS len, updated_at
+  FROM marinas
+ ORDER BY id;
+SELECT id, DATE(updated_at) AS day, COUNT(*) AS runs
+  FROM marinas_history
+ WHERE id='benalmadena'
+ GROUP BY DATE(updated_at);
+
+# Salir de psql
+\q
+
+# ─── Comprobaciones de conectividad ──────────────────────
+
+# Test de conexión desde el contenedor “app” usando test_conn.py
+docker-compose exec app python test_conn.py
+
+# (Si corres localmente fuera de Docker)
+python test_conn.py
+
+# ─── Arranque del MCP server para Inspector ───────────────
+
+# Desde tu entorno virtual local (sin Docker):
+python server.py
+
+# O directamente con uvicorn (si prefieres):
+uvicorn server:mcp.app --host 0.0.0.0 --port 8000
+
+# Luego abre MCP Inspector apuntando a:
+#   Transport: SSE
+#   URL:       http://localhost:8000/sse
+
+# ─── Llamadas manuales a la API (ej. Postman / curl) ──────
+
+# Forzar un scrape a demanda
+curl -X POST http://localhost:8000/run \
+  -H "Content-Type: application/json" \
+  -d '{"name":"trigger_scrape","args":{}}'
+
+# Obtener el último HTML de una marina
+curl -X POST http://localhost:8000/run \
+  -H "Content-Type: application/json" \
+  -d '{"name":"get_marina_html","args":{"marina_id":"benalmadena"}}'
+
+# Listar marinas disponibles
+curl -X POST http://localhost:8000/run \
+  -H "Content-Type: application/json" \
+  -d '{"name":"list_marinas","args":{}}'
+
+# Listar fechas históricas para una marina
+curl -X POST http://localhost:8000/run \
+  -H "Content-Type: application/json" \
+  -d '{"name":"list_history_dates","args":{"marina_id":"benalmadena"}}'
+
+# Limpiar histórico anterior a cierta fecha
+curl -X POST http://localhost:8000/run \
+  -H "Content-Type: application/json" \
+  -d '{"name":"cleanup_history","args":{"cutoff_date":"2025-01-01"}}'

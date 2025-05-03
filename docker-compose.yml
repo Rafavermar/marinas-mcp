@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:14
+    container_name: marinas-db
+    restart: always
+    environment:
+      POSTGRES_USER: marina_user
+      POSTGRES_PASSWORD: secret_pass
+      POSTGRES_DB: marinasdb
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
+
+  app:
+    build: .
+    container_name: marinas-app
+    depends_on:
+      - db
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://marina_user:secret_pass@db:5432/marinasdb
+    ports:
+      - '8000:8000'
+    volumes:
+      - ./:/app
+    working_dir: /app
+
+# Declaración de volúmenes de Docker
+volumes:
+  pgdata:

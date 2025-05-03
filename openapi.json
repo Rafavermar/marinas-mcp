@@ -1,0 +1,56 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Marinas MCP",
+    "version": "1.0.0",
+    "description": "API MCP para scraping de marinas y gestión de HTML histórico"
+  },
+  "servers": [
+    {
+      "url": "https://TU-DOMINIO"
+    }
+  ],
+  "paths": {
+    "/run": {
+      "post": {
+        "operationId": "runTool",
+        "summary": "Ejecutar herramienta MCP",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "args": { "type": "object" }
+                },
+                "required": ["name", "args"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Resultado de la herramienta",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "summary": "Esquema OpenAPI dinámico de FastMCP",
+        "responses": {
+          "200": {
+            "description": "Este mismo documento"
+          }
+        }
+      }
+    }
+  }
+}
