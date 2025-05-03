@@ -55,6 +55,8 @@ mcp = FastMCP(
     host="0.0.0.0",
     port=8000,
     log_level="INFO",
+    openapi_url="/openapi.json",
+    docs_url="/docs"
 )
 
 
