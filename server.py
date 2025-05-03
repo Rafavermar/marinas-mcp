@@ -2,7 +2,6 @@ import os
 from datetime import datetime
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from fastapi import FastAPI
 from fastmcp import FastMCP
 from playwright.async_api import async_playwright
 from dotenv import load_dotenv
@@ -33,21 +32,6 @@ async def fetch_html(url: str) -> str:
         return html
 
 
-# ───────── FastAPI ─────────
-app = FastAPI(
-    title="Marinas MCP",
-    description="API MCP para scraping de marinas y gestión de HTML histórico",
-    version="1.0.0",
-    docs_url="/docs",
-    openapi_url="/openapi.json",
-)
-
-
-@app.get("/", summary="Health check")
-async def root():
-    return {"status": "ok"}
-
-
 # ───────── MCP ─────────
 mcp = FastMCP(
     name="Marinas MCP",
@@ -58,6 +42,11 @@ mcp = FastMCP(
     openapi_url="/openapi.json",
     docs_url="/docs"
 )
+
+
+@mcp.app.get("/", summary="Health check")
+async def root():
+    return {"status": "ok"}
 
 
 @mcp.tool()
@@ -276,7 +265,9 @@ def _schedule_scrape():
 scheduler.add_job(_schedule_scrape, "cron", hour=2, minute=0)
 scheduler.start()
 
-# ───────── Exportación ASGI ─────────
-# Uvicorn loader busca `app` en server.py
+if __name__ == "__main__":
+    mcp.run(transport="sse")
+
+# para Uvicorn
 # noinspection PyUnresolvedReferences
 app = mcp.app
