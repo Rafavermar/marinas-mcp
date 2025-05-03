@@ -7,6 +7,7 @@ from playwright.async_api import async_playwright
 from dotenv import load_dotenv
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import asyncio
+from utils_pdf import fetch_pdf_text
 
 # ───────── utilidades ─────────
 dotenv_path = os.path.join(os.path.dirname(__file__), ".env")
@@ -44,70 +45,90 @@ mcp = FastMCP(
 @mcp.tool()
 async def trigger_scrape() -> dict:
     """
-    Trae solo el HTML de cada marina y lo guarda en la tabla `marinas`.
-    El campo `html_bruto` es JSONB (o TEXT), y `updated_at` la UTC actual.
+    Descarga HTML o, si la URL acaba en .pdf, el texto plano del PDF.
+    Guarda:
+      • html_bruto  (solo HTML)
+      • pdf_text    (solo texto de PDFs)
     """
     targets = {
-        "benalmadena": "https://puertobenalmadena.es/tarifas/",
-        "marbella": "https://puertodeportivo.marbella.es/servicios-y-tarifas/...",
+        "benalmadena": "https://puertobenalmadena.es/tarifas",
+        "marbella": "https://puertodeportivo.marbella.es/servicios-y-tarifas",
+        "marina_este": "https://www.marinasmediterraneo.com/wp-content/uploads/2022/03/Tarifas_MEste.pdf",
     }
 
-    conn = get_conn()
-    cur = conn.cursor()
-    updated = []
-    now = datetime.utcnow()
+    conn, cur = get_conn(), None
+    updated, now = [], datetime.utcnow()
 
     try:
+        cur = conn.cursor()
+
         for marina_id, url in targets.items():
-            html = await fetch_html(url)
-            # Upsert en Marinas
+            is_pdf = url.lower().endswith(".pdf")
+
+            if is_pdf:
+                html_val, pdf_val = None, await fetch_pdf_text(url)
+            else:
+                html_val, pdf_val = await fetch_html(url), None
+
+            # ───── upsert en tabla principal ─────
             cur.execute(
                 """
-                INSERT INTO marinas (id, html_bruto, updated_at)
-                VALUES (%s, %s, %s)
-                ON CONFLICT (id) DO UPDATE SET
-                  html_bruto = EXCLUDED.html_bruto,
-                  updated_at = EXCLUDED.updated_at
+                INSERT INTO marinas (id, html_bruto, pdf_text, updated_at)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (id) DO UPDATE
+                   SET html_bruto = EXCLUDED.html_bruto,
+                       pdf_text   = EXCLUDED.pdf_text,
+                       updated_at = EXCLUDED.updated_at
                 """,
-                (marina_id, html, now),
+                (marina_id, html_val, pdf_val, now),
             )
-            # Insert en histórico
+
+            # ───── insert en histórico ─────
             cur.execute(
                 """
-                INSERT INTO marinas_history (id, html_bruto, updated_at)
-                VALUES (%s, %s, %s)
+                INSERT INTO marinas_history (id, html_bruto, pdf_text, updated_at)
+                VALUES (%s, %s, %s, %s)
                 """,
-                (marina_id, html, now),
+                (marina_id, html_val, pdf_val, now),
             )
-            updated.append({"id": marina_id, "html_length": len(html)})
+
+            updated.append({
+                "id": marina_id,
+                "html_len": len(html_val or ""),
+                "pdf_len": len(pdf_val or ""),
+            })
 
         conn.commit()
         return {"updated": updated}
 
     finally:
-        cur.close()
+        if cur:
+            cur.close()
         conn.close()
 
 
 @mcp.tool()
-def get_marina_html(marina_id: str) -> dict:
+def get_marina_content(marina_id: str) -> dict:
     """
-    Recupera el HTML bruto almacenado y la fecha de última actualización.
+    Devuelve html_bruto y/o pdf_text según exista contenido.
     """
     conn = get_conn()
     cur = conn.cursor()
     cur.execute(
-        "SELECT html_bruto, updated_at FROM marinas WHERE id = %s",
+        "SELECT html_bruto, pdf_text, updated_at FROM marinas WHERE id = %s",
         (marina_id,),
     )
     row = cur.fetchone()
     cur.close()
     conn.close()
+
     if not row:
         return {"error": "Marina no encontrada"}
+
     return {
         "id": marina_id,
-        "html_bruto": row["html_bruto"],
+        "html_bruto": row["html_bruto"],  # puede ser None
+        "pdf_text": row["pdf_text"],  # puede ser None
         "updated_at": row["updated_at"].isoformat(),
     }
 
@@ -147,22 +168,32 @@ def list_history_dates(marina_id: str) -> list[str]:
 @mcp.tool()
 def get_marina_history(marina_id: str) -> list[dict]:
     """
-    Devuelve todas las entradas históricas de HTML para esa marina.
-    Cada dict tiene: fecha y html_bruto.
+    Devuelve la lista histórica con html_bruto y pdf_text.
     """
     conn = get_conn()
     cur = conn.cursor()
     cur.execute(
-        "SELECT html_bruto, updated_at FROM marinas_history WHERE id = %s ORDER BY updated_at DESC",
+        """
+        SELECT html_bruto, pdf_text, updated_at
+          FROM marinas_history
+         WHERE id = %s
+      ORDER BY updated_at DESC
+        """,
         (marina_id,),
     )
     rows = cur.fetchall()
     cur.close()
     conn.close()
+
     return [
-        {"fecha": r["updated_at"].date().isoformat(), "html_bruto": r["html_bruto"]}
+        {
+            "fecha": r["updated_at"].date().isoformat(),
+            "html_bruto": r["html_bruto"],
+            "pdf_text": r["pdf_text"],
+        }
         for r in rows
     ]
+
 
 @mcp.tool()
 def health_check() -> dict:
@@ -181,6 +212,7 @@ def health_check() -> dict:
         return {"status": "ok"}
     except Exception as e:
         return {"status": "error", "detail": str(e)}
+
 
 @mcp.tool()
 def cleanup_history(cutoff_date: str) -> dict:
@@ -209,6 +241,7 @@ def cleanup_history(cutoff_date: str) -> dict:
     cur.close()
     conn.close()
     return {"deleted_rows": deleted}
+
 
 # ───────── Scheduler ─────────
 

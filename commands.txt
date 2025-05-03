@@ -62,6 +62,7 @@ python test_conn.py
 
 # Desde tu entorno virtual local (sin Docker):
 python server.py
+mcp dev server.py
 
 # O directamente con uvicorn (si prefieres):
 uvicorn server:mcp.app --host 0.0.0.0 --port 8000
