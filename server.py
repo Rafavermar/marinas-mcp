@@ -1,6 +1,7 @@
 import os
 from datetime import datetime
 import psycopg2
+from fastapi.openapi.utils import get_openapi
 from psycopg2.extras import RealDictCursor
 from fastmcp import FastMCP
 from fastapi import FastAPI
@@ -61,6 +62,28 @@ mcp = FastMCP(
 )
 
 
+# ───────── Sobrescribimos OpenAPI para añadir `servers` ─────────
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+
+    schema = get_openapi(
+        title="Marinas MCP",
+        version="1.0.0",
+        description="API MCP para scraping de marinas y gestión de HTML histórico",
+        routes=app.routes,
+    )
+    schema["servers"] = [
+        {"url": "https://marinas-mcp-app.azurewebsites.net"}
+    ]
+    app.openapi_schema = schema
+    return schema
+
+
+app.openapi = custom_openapi
+
+
+# ─────────────────────────────────────────────────────────────
 @mcp.tool()
 async def trigger_scrape() -> dict:
     """
