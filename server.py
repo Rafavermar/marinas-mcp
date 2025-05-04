@@ -3,11 +3,27 @@ from datetime import datetime
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from fastmcp import FastMCP
+from fastapi import FastAPI
 from playwright.async_api import async_playwright
 from dotenv import load_dotenv
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-import asyncio
 from utils_pdf import fetch_pdf_text
+
+# ───────── FastAPI principal ─────────
+app = FastAPI(
+    title="Marinas MCP",
+    description="API MCP para scraping de marinas y gestión de HTML histórico",
+    version="1.0.0",
+    docs_url="/docs",
+    openapi_url="/openapi.json",
+)
+
+
+# Health-check estándar
+@app.get("/", summary="Health check")
+async def root():
+    return {"status": "ok"}
+
 
 # ───────── utilidades ─────────
 dotenv_path = os.path.join(os.path.dirname(__file__), ".env")
@@ -34,6 +50,7 @@ async def fetch_html(url: str) -> str:
 
 # ───────── MCP ─────────
 mcp = FastMCP(
+    app=app,
     name="Marinas MCP",
     instructions="Scrape rápido de HTML de marinas para análisis posterior",
     host="0.0.0.0",
@@ -42,11 +59,6 @@ mcp = FastMCP(
     openapi_url="/openapi.json",
     docs_url="/docs"
 )
-
-
-@mcp.app.get("/", summary="Health check")
-async def root():
-    return {"status": "ok"}
 
 
 @mcp.tool()
@@ -255,19 +267,10 @@ def cleanup_history(cutoff_date: str) -> dict:
 
 scheduler = AsyncIOScheduler(timezone="Europe/Madrid")
 
+# Programa trigger_scrape (que es async) directamente como job:
+scheduler.add_job(trigger_scrape, "cron", hour=2, minute=0)
 
-# Cada día a las 02:00
-def _schedule_scrape():
-    # Lanza el coroutine en el loop actual
-    asyncio.create_task(trigger_scrape())
-
-
-scheduler.add_job(_schedule_scrape, "cron", hour=2, minute=0)
 scheduler.start()
 
 if __name__ == "__main__":
     mcp.run(transport="sse")
-
-# para Uvicorn
-# noinspection PyUnresolvedReferences
-app = mcp.app
