@@ -1,7 +1,6 @@
 import os
 from datetime import datetime
 import psycopg2
-from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
 from psycopg2.extras import RealDictCursor
 from fastmcp import FastMCP
@@ -9,8 +8,6 @@ from fastapi import FastAPI
 from playwright.async_api import async_playwright
 from dotenv import load_dotenv
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from starlette.responses import JSONResponse
-
 from utils_pdf import fetch_pdf_text
 
 # ───────── FastAPI principal ─────────
@@ -61,7 +58,8 @@ mcp = FastMCP(
     host="0.0.0.0",
     port=8000,
     log_level="INFO",
-    # openapi_url y docs_url los desactivamos en FastAPI de arriba
+    openapi_url="/openapi.json",
+    docs_url="/docs",
 )
 
 
@@ -291,27 +289,48 @@ def custom_openapi():
         description="API MCP para scraping de marinas y gestión de HTML histórico",
         routes=app.routes,
     )
+
+    # 1) obligamos a 3.1.0
+    schema["openapi"] = "3.1.0"
+
+    # 2) bandera de tu servidor en producción
     schema["servers"] = [
         {"url": "https://marinas-mcp-app.azurewebsites.net"}
     ]
+
+    # 3) esquemas mínimos que exige la validación de Custom GPT:
+    #   – health check
+    schema["paths"]["/"]["get"]["responses"]["200"]["content"]["application/json"]["schema"] = {
+        "type": "object",
+        "properties": {
+            "status": {"type": "string", "example": "ok"}
+        },
+        "required": ["status"],
+        "additionalProperties": False
+    }
+
+    #   – /run petición
+    schema["paths"]["/run"]["post"]["requestBody"]["content"]["application/json"]["schema"] = {
+        "type": "object",
+        "properties": {
+            "name": {"type": "string"},
+            "args": {"type": "object"}
+        },
+        "required": ["name", "args"],
+        "additionalProperties": False
+    }
+    #   – /run respuesta
+    schema["paths"]["/run"]["post"]["responses"]["200"]["content"]["application/json"]["schema"] = {
+        "type": "object",
+        "additionalProperties": True
+    }
+
     app.openapi_schema = schema
     return schema
 
 
-# Sirve el esquema en /openapi.json ────────────────────────────────────────
-@app.get("/openapi.json", include_in_schema=False)
-async def openapi_json():
-    return JSONResponse(custom_openapi())
-
-
-# Sirve Swagger UI apuntando a /openapi.json ───────────────────────────────
-@app.get("/docs", include_in_schema=False)
-async def swagger_ui():
-    return get_swagger_ui_html(
-        openapi_url="/openapi.json",
-        title="Marinas MCP – Swagger UI"
-    )
-
+# indícale a FastAPI que use custom_openapi()
+app.openapi = custom_openapi
 
 # ───────── Scheduler ─────────
 
