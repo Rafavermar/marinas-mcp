@@ -1,7 +1,7 @@
 import os
-import json
 from datetime import datetime
 import psycopg2
+from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
 from psycopg2.extras import RealDictCursor
 from fastmcp import FastMCP
@@ -15,13 +15,13 @@ from utils_pdf import fetch_pdf_text
 
 # ───────── FastAPI principal ─────────
 app = FastAPI(
-     title="Marinas MCP",
-     description="API MCP para scraping de marinas y gestión de HTML histórico",
-     version="1.0.0",
-     docs_url="/docs",
-     openapi_url=None,         # ← deshabilito el openapi automático
-     redoc_url=None,
-  )
+    title="Marinas MCP",
+    description="API MCP para scraping de marinas y gestión de HTML histórico",
+    version="1.0.0",
+    openapi_url=None,
+    docs_url=None,
+    redoc_url=None,
+)
 
 
 # Health-check estándar
@@ -61,30 +61,8 @@ mcp = FastMCP(
     host="0.0.0.0",
     port=8000,
     log_level="INFO",
-    openapi_url="/openapi.json",
-    docs_url="/docs"
+    # openapi_url y docs_url los desactivamos en FastAPI de arriba
 )
-
-
-# ───────── Sobrescribimos OpenAPI para añadir `servers` ─────────
-def custom_openapi():
-    if app.openapi_schema:
-        return app.openapi_schema
-
-    schema = get_openapi(
-        title="Marinas MCP",
-        version="1.0.0",
-        description="API MCP para scraping de marinas y gestión de HTML histórico",
-        routes=app.routes,
-    )
-    schema["servers"] = [
-        {"url": "https://marinas-mcp-app.azurewebsites.net"}
-    ]
-    app.openapi_schema = schema
-    return schema
-
-
-app.openapi = custom_openapi
 
 
 # ─────────────────────────────────────────────────────────────
@@ -289,17 +267,50 @@ def cleanup_history(cutoff_date: str) -> dict:
     return {"deleted_rows": deleted}
 
 
+# @app.get("/openapi.json", include_in_schema=False)
+# async def serve_openapi():
+#    """
+#    Sirve el openapi.json estático que tienes en tu repo,
+#    con "servers" y con /run, /openapi.json, etc.
+#    """
+#    here = os.path.dirname(__file__)
+#    path = os.path.join(here, "openapi.json")
+#    with open(path, encoding="utf-8") as f:
+#        spec = json.load(f)
+#    return JSONResponse(content=spec)
+
+
+# Función para generar el esquema OpenAPI completo, INYECTANDO servers ──────
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    # genera el esquema sobre TODAS las rutas de FastAPI (incluidos los tools de FastMCP)
+    schema = get_openapi(
+        title="Marinas MCP",
+        version="1.0.0",
+        description="API MCP para scraping de marinas y gestión de HTML histórico",
+        routes=app.routes,
+    )
+    schema["servers"] = [
+        {"url": "https://marinas-mcp-app.azurewebsites.net"}
+    ]
+    app.openapi_schema = schema
+    return schema
+
+
+# Sirve el esquema en /openapi.json ────────────────────────────────────────
 @app.get("/openapi.json", include_in_schema=False)
-async def serve_openapi():
-    """
-    Sirve el openapi.json estático que tienes en tu repo,
-    con "servers" y con /run, /openapi.json, etc.
-    """
-    here = os.path.dirname(__file__)
-    path = os.path.join(here, "openapi.json")
-    with open(path, encoding="utf-8") as f:
-        spec = json.load(f)
-    return JSONResponse(content=spec)
+async def openapi_json():
+    return JSONResponse(custom_openapi())
+
+
+# Sirve Swagger UI apuntando a /openapi.json ───────────────────────────────
+@app.get("/docs", include_in_schema=False)
+async def swagger_ui():
+    return get_swagger_ui_html(
+        openapi_url="/openapi.json",
+        title="Marinas MCP – Swagger UI"
+    )
 
 
 # ───────── Scheduler ─────────
