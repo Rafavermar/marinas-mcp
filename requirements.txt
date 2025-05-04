@@ -4,6 +4,7 @@ playwright~=1.52.0
 psycopg2-binary
 uvicorn~=0.34.2
 APScheduler~=3.10.1
-pdfplumber
-httpx
-fastapi
+pdfplumber~=0.11.6
+httpx~=0.28.1
+fastapi~=0.115.12
+starlette~=0.46.2

@@ -1,4 +1,5 @@
 import os
+import json
 from datetime import datetime
 import psycopg2
 from fastapi.openapi.utils import get_openapi
@@ -8,16 +9,19 @@ from fastapi import FastAPI
 from playwright.async_api import async_playwright
 from dotenv import load_dotenv
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from starlette.responses import JSONResponse
+
 from utils_pdf import fetch_pdf_text
 
 # ───────── FastAPI principal ─────────
 app = FastAPI(
-    title="Marinas MCP",
-    description="API MCP para scraping de marinas y gestión de HTML histórico",
-    version="1.0.0",
-    docs_url="/docs",
-    openapi_url="/openapi.json",
-)
+     title="Marinas MCP",
+     description="API MCP para scraping de marinas y gestión de HTML histórico",
+     version="1.0.0",
+     docs_url="/docs",
+     openapi_url=None,         # ← deshabilito el openapi automático
+     redoc_url=None,
+  )
 
 
 # Health-check estándar
@@ -283,6 +287,19 @@ def cleanup_history(cutoff_date: str) -> dict:
     cur.close()
     conn.close()
     return {"deleted_rows": deleted}
+
+
+@app.get("/openapi.json", include_in_schema=False)
+async def serve_openapi():
+    """
+    Sirve el openapi.json estático que tienes en tu repo,
+    con "servers" y con /run, /openapi.json, etc.
+    """
+    here = os.path.dirname(__file__)
+    path = os.path.join(here, "openapi.json")
+    with open(path, encoding="utf-8") as f:
+        spec = json.load(f)
+    return JSONResponse(content=spec)
 
 
 # ───────── Scheduler ─────────
