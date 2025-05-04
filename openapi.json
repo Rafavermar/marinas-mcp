@@ -11,6 +11,49 @@
     }
   ],
   "paths": {
+    "/": {
+      "get": {
+        "operationId": "root__get",
+        "summary": "Health check",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "ok"
+                    }
+                  },
+                  "required": ["status"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "operationId": "get_openapi",
+        "summary": "Esquema OpenAPI dinámico de FastMCP",
+        "responses": {
+          "200": {
+            "description": "El documento OpenAPI completo",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/run": {
       "post": {
         "operationId": "runTool",
@@ -22,8 +65,14 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "name": { "type": "string" },
-                  "args": { "type": "object" }
+                  "name": {
+                    "type": "string",
+                    "description": "Nombre de la herramienta a ejecutar"
+                  },
+                  "args": {
+                    "type": "object",
+                    "description": "Argumentos propios de la herramienta"
+                  }
                 },
                 "required": ["name", "args"]
               }
@@ -35,19 +84,11 @@
             "description": "Resultado de la herramienta",
             "content": {
               "application/json": {
-                "schema": { "type": "object" }
+                "schema": {
+                  "type": "object"
+                }
               }
             }
-          }
-        }
-      }
-    },
-    "/openapi.json": {
-      "get": {
-        "summary": "Esquema OpenAPI dinámico de FastMCP",
-        "responses": {
-          "200": {
-            "description": "Este mismo documento"
           }
         }
       }
