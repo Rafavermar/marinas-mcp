@@ -354,11 +354,17 @@ async def manual_run(payload: dict = Body(...)):
     if not name or name not in TOOL_REGISTRY:
         raise HTTPException(404, detail=f"Herramienta '{name}' no registrada")
     fn = TOOL_REGISTRY[name]
-    # extrae todos los campos excepto 'name' como kwargs
-    kwargs = {k: v for k, v in payload.items() if k != "name"}
+    # Si viene un dict bajo "args", lo usamos como kwargs,
+    # si no, aplanamos todos los campos salvo 'name'
+
+    if "args" in payload and isinstance(payload["args"], dict):
+        kwargs = payload["args"]
+    else:
+        kwargs = {k: v for k, v in payload.items() if k != "name"}
     if inspect.iscoroutinefunction(fn):
         return await fn(**kwargs)
     return fn(**kwargs)
+
 
 # ───────── Scheduler ─────────
 
