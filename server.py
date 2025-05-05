@@ -290,40 +290,36 @@ def custom_openapi():
         routes=app.routes,
     )
 
-    # 1) obligamos a 3.1.0
+    # 2) Forzar OpenAPI 3.1.0 + servidor
     schema["openapi"] = "3.1.0"
+    schema["servers"] = [{"url": "https://marinas-mcp-app.azurewebsites.net"}]
 
-    # 2) bandera de tu servidor en producción
-    schema["servers"] = [
-        {"url": "https://marinas-mcp-app.azurewebsites.net"}
-    ]
+    # 3) Health-check mínimo
+    paths = schema.setdefault("paths", {})
+    if "/" in paths:
+        paths["/"]["get"]["responses"]["200"]["content"]["application/json"]["schema"] = {
+            "type": "object",
+            "properties": {"status": {"type": "string", "example": "ok"}},
+            "required": ["status"],
+            "additionalProperties": False,
+        }
 
-    # 3) esquemas mínimos que exige la validación de Custom GPT:
-    #   – health check
-    schema["paths"]["/"]["get"]["responses"]["200"]["content"]["application/json"]["schema"] = {
-        "type": "object",
-        "properties": {
-            "status": {"type": "string", "example": "ok"}
-        },
-        "required": ["status"],
-        "additionalProperties": False
-    }
-
-    #   – /run petición
-    schema["paths"]["/run"]["post"]["requestBody"]["content"]["application/json"]["schema"] = {
-        "type": "object",
-        "properties": {
-            "name": {"type": "string"},
-            "args": {"type": "object"}
-        },
-        "required": ["name", "args"],
-        "additionalProperties": False
-    }
-    #   – /run respuesta
-    schema["paths"]["/run"]["post"]["responses"]["200"]["content"]["application/json"]["schema"] = {
-        "type": "object",
-        "additionalProperties": True
-    }
+    # 4) /run: solo si ya está en paths
+    run_op = paths.get("/run", {}).get("post")
+    if run_op:
+        run_op["requestBody"]["content"]["application/json"]["schema"] = {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "args": {"type": "object"},
+            },
+            "required": ["name", "args"],
+            "additionalProperties": False,
+        }
+        run_op["responses"]["200"]["content"]["application/json"]["schema"] = {
+            "type": "object",
+            "additionalProperties": True,
+        }
 
     app.openapi_schema = schema
     return schema
