@@ -265,6 +265,16 @@ def cleanup_history(cutoff_date: str) -> dict:
     return {"deleted_rows": deleted}
 
 
+# Registro manual de herramientas:
+TOOL_REGISTRY = {
+    "trigger_scrape": trigger_scrape,
+    "get_marina_content": get_marina_content,
+    "list_marinas": list_marinas,
+    "list_history_dates": list_history_dates,
+    "get_marina_history": get_marina_history,
+}
+
+
 # Función para generar el esquema OpenAPI completo, INYECTANDO servers ──────
 def custom_openapi():
     if app.openapi_schema:
@@ -332,6 +342,22 @@ def custom_openapi():
 
 # indícale a FastAPI que use custom_openapi()
 app.openapi = custom_openapi
+
+
+@app.post("/run", operation_id="run")
+async def manual_run(payload: dict = Body(...)):
+    """
+    /run manual para uvicorn: desempaqueta name + kwargs directamente.
+    """
+    name = payload.get("name")
+    if not name or name not in TOOL_REGISTRY:
+        raise HTTPException(404, detail=f"Herramienta '{name}' no registrada")
+    fn = TOOL_REGISTRY[name]
+    # extrae todos los campos excepto 'name' como kwargs
+    kwargs = {k: v for k, v in payload.items() if k != "name"}
+    if inspect.iscoroutinefunction(fn):
+        return await fn(**kwargs)
+    return fn(**kwargs)
 
 # ───────── Scheduler ─────────
 

@@ -31,6 +31,4 @@ COPY . .
 EXPOSE 8000
 
 # 8. Comando de arranque: uvicorn sobre el FastMCP.app
-# CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8000", "--log-level", "info"]
-CMD ["python", "-u", "server.py"]
-
+CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8000", "--log-level", "info"]
