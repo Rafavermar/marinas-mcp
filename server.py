@@ -265,19 +265,6 @@ def cleanup_history(cutoff_date: str) -> dict:
     return {"deleted_rows": deleted}
 
 
-# @app.get("/openapi.json", include_in_schema=False)
-# async def serve_openapi():
-#    """
-#    Sirve el openapi.json estático que tienes en tu repo,
-#    con "servers" y con /run, /openapi.json, etc.
-#    """
-#    here = os.path.dirname(__file__)
-#    path = os.path.join(here, "openapi.json")
-#    with open(path, encoding="utf-8") as f:
-#        spec = json.load(f)
-#    return JSONResponse(content=spec)
-
-
 # Función para generar el esquema OpenAPI completo, INYECTANDO servers ──────
 def custom_openapi():
     if app.openapi_schema:
@@ -314,11 +301,10 @@ def custom_openapi():
                         "schema": {
                             "type": "object",
                             "properties": {
-                                "name": {"type": "string"},
-                                "args": {"type": "object"},
+                                "name": {"type": "string"}
                             },
-                            "required": ["name", "args"],
-                            "additionalProperties": False,
+                            "required": ["name"],
+                            "additionalProperties": True
                         }
                     }
                 }
@@ -328,7 +314,11 @@ def custom_openapi():
                     "description": "Resultado de la herramienta invocada",
                     "content": {
                         "application/json": {
-                            "schema": {"type": "object", "properties": {}, "additionalProperties": True}
+                            "schema": {
+                                "type": "object",
+                                "properties": {},  # ya cumplimos el validador
+                                "additionalProperties": True
+                            }
                         }
                     },
                 }
