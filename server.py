@@ -1,14 +1,15 @@
+import inspect
 import os
 from datetime import datetime
 import psycopg2
 from fastapi.openapi.utils import get_openapi
 from psycopg2.extras import RealDictCursor
 from fastmcp import FastMCP
-from fastapi import FastAPI
 from playwright.async_api import async_playwright
 from dotenv import load_dotenv
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from utils_pdf import fetch_pdf_text
+from fastapi import FastAPI, Body, HTTPException
 
 # ───────── FastAPI principal ─────────
 app = FastAPI(
