@@ -282,11 +282,12 @@ def cleanup_history(cutoff_date: str) -> dict:
 def custom_openapi():
     if app.openapi_schema:
         return app.openapi_schema
-    # genera el esquema sobre TODAS las rutas de FastAPI (incluidos los tools de FastMCP)
+
+    # 1) Genera el esquema base
     schema = get_openapi(
-        title="Marinas MCP",
-        version="1.0.0",
-        description="API MCP para scraping de marinas y gestión de HTML histórico",
+        title=app.title,
+        version=app.version,
+        description=app.description,
         routes=app.routes,
     )
 
@@ -296,33 +297,49 @@ def custom_openapi():
 
     # 3) Health-check mínimo
     paths = schema.setdefault("paths", {})
-    if "/" in paths:
-        paths["/"]["get"]["responses"]["200"]["content"]["application/json"]["schema"] = {
-            "type": "object",
-            "properties": {"status": {"type": "string", "example": "ok"}},
-            "required": ["status"],
-            "additionalProperties": False,
-        }
+    paths["/"]["get"]["responses"]["200"]["content"]["application/json"]["schema"] = {
+        "type": "object",
+        "properties": {"status": {"type": "string", "example": "ok"}},
+        "required": ["status"],
+        "additionalProperties": False,
+    }
 
-    # 4) /run: solo si ya está en paths
-    run_op = paths.get("/run", {}).get("post")
-    if run_op:
-        run_op["requestBody"]["content"]["application/json"]["schema"] = {
-            "type": "object",
-            "properties": {
-                "name": {"type": "string"},
-                "args": {"type": "object"},
+    # 4) Inyectar /run siempre
+    paths["/run"] = {
+        "post": {
+            "operationId": "run",
+            "summary": "Invoca herramientas de FastMCP",
+            "requestBody": {
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "name": {"type": "string"},
+                                "args": {"type": "object"},
+                            },
+                            "required": ["name", "args"],
+                            "additionalProperties": False,
+                        }
+                    }
+                }
             },
-            "required": ["name", "args"],
-            "additionalProperties": False,
+            "responses": {
+                "200": {
+                    "description": "Resultado de la herramienta invocada",
+                    "content": {
+                        "application/json": {
+                            "schema": {"type": "object", "additionalProperties": True}
+                        }
+                    },
+                }
+            },
         }
-        run_op["responses"]["200"]["content"]["application/json"]["schema"] = {
-            "type": "object",
-            "additionalProperties": True,
-        }
+    }
 
     app.openapi_schema = schema
     return schema
+
 
 
 # indícale a FastAPI que use custom_openapi()
