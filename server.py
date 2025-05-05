@@ -15,8 +15,8 @@ app = FastAPI(
     title="Marinas MCP",
     description="API MCP para scraping de marinas y gestión de HTML histórico",
     version="1.0.0",
-    openapi_url=None,
-    docs_url=None,
+    openapi_url="/openapi.json",
+    docs_url="/docs",
     redoc_url=None,
 )
 
