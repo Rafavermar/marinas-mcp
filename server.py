@@ -282,12 +282,11 @@ def cleanup_history(cutoff_date: str) -> dict:
 def custom_openapi():
     if app.openapi_schema:
         return app.openapi_schema
-
-    # 1) Genera el esquema base
+    # genera el esquema sobre TODAS las rutas de FastAPI (incluidos los tools de FastMCP)
     schema = get_openapi(
-        title=app.title,
-        version=app.version,
-        description=app.description,
+        title="Marinas MCP",
+        version="1.0.0",
+        description="API MCP para scraping de marinas y gestión de HTML histórico",
         routes=app.routes,
     )
 
@@ -295,7 +294,7 @@ def custom_openapi():
     schema["openapi"] = "3.1.0"
     schema["servers"] = [{"url": "https://marinas-mcp-app.azurewebsites.net"}]
 
-    # 3) Health-check mínimo
+    # Health-check mínimo
     paths = schema.setdefault("paths", {})
     paths["/"]["get"]["responses"]["200"]["content"]["application/json"]["schema"] = {
         "type": "object",
@@ -304,7 +303,7 @@ def custom_openapi():
         "additionalProperties": False,
     }
 
-    # 4) Inyectar /run siempre
+    # INYECTAMOS /run con operationId="run"
     paths["/run"] = {
         "post": {
             "operationId": "run",
@@ -329,7 +328,7 @@ def custom_openapi():
                     "description": "Resultado de la herramienta invocada",
                     "content": {
                         "application/json": {
-                            "schema": {"type": "object", "additionalProperties": True}
+                            "schema": {"type": "object", "properties": {}, "additionalProperties": True}
                         }
                     },
                 }
@@ -339,7 +338,6 @@ def custom_openapi():
 
     app.openapi_schema = schema
     return schema
-
 
 
 # indícale a FastAPI que use custom_openapi()
