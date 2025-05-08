@@ -10,6 +10,8 @@ from dotenv import load_dotenv
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from utils_pdf import fetch_pdf_text
 from fastapi import FastAPI, Body, HTTPException
+import logging
+
 
 # ───────── FastAPI principal ─────────
 app = FastAPI(
@@ -43,9 +45,9 @@ def get_conn():
 async def fetch_html(url: str) -> str:
     """Solo obtiene el HTML bruto de la página."""
     async with async_playwright() as pw:
-        browser = await pw.chromium.launch(headless=True)
+        browser = await pw.chromium.launch(headless=True, args=["--no-sandbox"])
         page = await browser.new_page()
-        await page.goto(url, wait_until="networkidle")
+        await page.goto(url, wait_until="domcontentloaded")
         html = await page.content()
         await browser.close()
         return html
@@ -65,6 +67,7 @@ mcp = FastMCP(
 
 
 # ─────────────────────────────────────────────────────────────
+logger = logging.getLogger(__name__)
 @mcp.tool()
 async def trigger_scrape() -> dict:
     """
@@ -122,6 +125,7 @@ async def trigger_scrape() -> dict:
             })
 
         conn.commit()
+        logger.info("Scrape OK · %s marinas actualizadas", len(updated))
         return {"updated": updated}
 
     finally:
@@ -273,6 +277,7 @@ TOOL_REGISTRY = {
     "list_marinas": list_marinas,
     "list_history_dates": list_history_dates,
     "get_marina_history": get_marina_history,
+    "health_check": health_check,
 }
 
 
