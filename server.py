@@ -12,7 +12,6 @@ from utils_pdf import fetch_pdf_text
 from fastapi import FastAPI, Body, HTTPException
 import logging
 
-
 # ───────── FastAPI principal ─────────
 app = FastAPI(
     title="Marinas MCP",
@@ -65,9 +64,10 @@ mcp = FastMCP(
     docs_url="/docs",
 )
 
-
 # ─────────────────────────────────────────────────────────────
 logger = logging.getLogger(__name__)
+
+
 @mcp.tool()
 async def trigger_scrape() -> dict:
     """
@@ -317,10 +317,13 @@ def custom_openapi():
                         "schema": {
                             "type": "object",
                             "properties": {
-                                "name": {"type": "string"}
+                                "name": {"type": "string"},
+                                "marina_id": {"type": "string"},
+                                "cutoff_date": {"type": "string", "pattern": r"^\\d{4}-\\d{2}-\\d{2}$"},
+                                "args": {"type": "object"}  # ← si algún cliente aún la usa
                             },
                             "required": ["name"],
-                            "additionalProperties": True
+                            "additionalProperties": False
                         }
                     }
                 }
@@ -330,13 +333,9 @@ def custom_openapi():
                     "description": "Resultado de la herramienta invocada",
                     "content": {
                         "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "properties": {},  # ya cumplimos el validador
-                                "additionalProperties": True
-                            }
+                            "schema": {"type": "object", "additionalProperties": True}
                         }
-                    },
+                    }
                 }
             },
         }
