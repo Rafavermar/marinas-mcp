@@ -333,7 +333,7 @@ def custom_openapi():
                     "description": "Resultado de la herramienta invocada",
                     "content": {
                         "application/json": {
-                            "schema": {"type": "object", "additionalProperties": True}
+                            "schema": {"type": "object", "properties": {}, "additionalProperties": True}
                         }
                     }
                 }
