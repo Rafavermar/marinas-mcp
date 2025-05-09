@@ -145,8 +145,10 @@ def get_marina_content(marina_id: str) -> dict:
     conn = get_conn()
     cur = conn.cursor()
     cur.execute(
-        "SELECT tarifas_json, updated_at FROM marinas WHERE id = %s",
-        (marina_id,))
+        "SELECT pdf_text, tarifas_json, updated_at "
+        "FROM marinas WHERE id = %s",
+        (marina_id,),
+    )
     row = cur.fetchone()
     cur.close()
     conn.close()
@@ -156,8 +158,10 @@ def get_marina_content(marina_id: str) -> dict:
 
     return {
         "id": marina_id,
-        "tarifas": row["tarifas_json"],  # ← ligero
-        "updated_at": row["updated_at"].isoformat()
+        # "html_bruto": row["html_bruto"],
+        "pdf_text": row["pdf_text"],
+        "tarifas": row["tarifas_json"],
+        "updated_at": row["updated_at"].isoformat(),
     }
 
 
