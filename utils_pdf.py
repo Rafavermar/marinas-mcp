@@ -5,7 +5,6 @@ import pdfplumber
 import re
 from utils_html import _clean
 
-
 async def fetch_pdf_text(url: str) -> str:
     async with httpx.AsyncClient(timeout=30) as client:
         r = await client.get(url, follow_redirects=True)
@@ -13,7 +12,6 @@ async def fetch_pdf_text(url: str) -> str:
         pdf_bytes = r.content
     with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
         return "\n".join(page.extract_text() or "" for page in pdf.pages)
-
 
 def extract_pdf_prices(text: str, marina_id: str) -> dict:
     """
@@ -23,21 +21,36 @@ def extract_pdf_prices(text: str, marina_id: str) -> dict:
     if marina_id != "marina_este":
         raise ValueError("solo implementado para marina_este")
 
-    # localiza la sección “Tarifas diarias”
-    all_lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
-    header_idx = next(i for i, ln in enumerate(all_lines)
-                      if re.search(r"Eslora.*Baja", ln, re.I))
+    # Limpiamos líneas no vacías
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    # Buscamos encabezado de “Eslora … Baja”
+    try:
+        header_idx = next(i for i, ln in enumerate(lines)
+                          if re.search(r"Eslora.*Baja", ln, re.I))
+    except StopIteration:
+        raise ValueError("Encabezado de tarifas no encontrado en PDF")
 
     rows = []
-    for raw in all_lines[header_idx + 1:]:
-        # un número al principio → nuevas tarifas; si no, salimos
-        if not re.match(r"^\d", raw):  # llega a “*IVA incluido…”
+    for raw in lines[header_idx + 1:]:
+        # Salimos al llegar a la parte descriptiva (no empieza por dígito)
+        if not re.match(r"^\d", raw):
             break
         parts = raw.split()
-        eslora = _clean(parts[0])
-        baja = _clean(parts[1])
-        media = _clean(parts[2])
-        alta = _clean(parts[3])
+
+        # Convierte seguro o devuelve None
+        def safe(part_i):
+            if part_i < len(parts):
+                try:
+                    return _clean(parts[part_i])
+                except ValueError:
+                    return None
+            return None
+
+        eslora = safe(0)
+        baja   = safe(1)
+        media  = safe(2)
+        alta   = safe(3)
+
         rows.append([eslora, baja, media, alta])
 
     return {"temporadas": ["baja", "media", "alta"], "rows": rows}
