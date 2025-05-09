@@ -139,7 +139,6 @@ async def trigger_scrape() -> dict:
 
 
 @mcp.tool()
-@mcp.tool()
 def get_marina_content(marina_id: str) -> dict:
     conn = get_conn()
     cur = conn.cursor()
@@ -203,7 +202,7 @@ def get_marina_history(marina_id: str) -> list[dict]:
     cur = conn.cursor()
     cur.execute(
         """
-        SELECT html_bruto, pdf_text, updated_at
+        SELECT pdf_text, tarifas_json, updated_at
           FROM marinas_history
          WHERE id = %s
       ORDER BY updated_at DESC
@@ -217,8 +216,8 @@ def get_marina_history(marina_id: str) -> list[dict]:
     return [
         {
             "fecha": r["updated_at"].date().isoformat(),
-            "html_bruto": r["html_bruto"],
             "pdf_text": r["pdf_text"],
+            "tarifas": r["tarifas_json"],
         }
         for r in rows
     ]
