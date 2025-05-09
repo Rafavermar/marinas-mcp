@@ -1,4 +1,5 @@
 import inspect
+import json
 import os
 from datetime import datetime
 import psycopg2
@@ -8,7 +9,9 @@ from fastmcp import FastMCP
 from playwright.async_api import async_playwright
 from dotenv import load_dotenv
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from utils_pdf import fetch_pdf_text
+
+from utils_html import extract_html_prices
+from utils_pdf import fetch_pdf_text, extract_pdf_prices
 from fastapi import FastAPI, Body, HTTPException
 import logging
 
@@ -92,21 +95,23 @@ async def trigger_scrape() -> dict:
             is_pdf = url.lower().endswith(".pdf")
 
             if is_pdf:
-                html_val, pdf_val = None, await fetch_pdf_text(url)
+                pdf_val = await fetch_pdf_text(url)
+                html_val = None
+                tarifas = extract_pdf_prices(pdf_val, marina_id=marina_id)
             else:
-                html_val, pdf_val = await fetch_html(url), None
+                html_val = await fetch_html(url)
+                pdf_val = None
+                tarifas = extract_html_prices(html_val, marina_id=marina_id)
 
-            # ───── upsert en tabla principal ─────
             cur.execute(
                 """
-                INSERT INTO marinas (id, html_bruto, pdf_text, updated_at)
-                VALUES (%s, %s, %s, %s)
-                ON CONFLICT (id) DO UPDATE
-                   SET html_bruto = EXCLUDED.html_bruto,
-                       pdf_text   = EXCLUDED.pdf_text,
-                       updated_at = EXCLUDED.updated_at
+                INSERT INTO marinas (id, html_bruto, pdf_text, tarifas_json, updated_at)
+                VALUES (%s,%s,%s,%s,%s)
+                ON CONFLICT (id) DO UPDATE SET
+                    tarifas_json = EXCLUDED.tarifas_json,
+                    updated_at   = EXCLUDED.updated_at
                 """,
-                (marina_id, html_val, pdf_val, now),
+                (marina_id, html_val, pdf_val, json.dumps(tarifas), now)
             )
 
             # ───── insert en histórico ─────
@@ -135,28 +140,24 @@ async def trigger_scrape() -> dict:
 
 
 @mcp.tool()
+@mcp.tool()
 def get_marina_content(marina_id: str) -> dict:
-    """
-    Devuelve html_bruto y/o pdf_text según exista contenido.
-    """
     conn = get_conn()
     cur = conn.cursor()
     cur.execute(
-        "SELECT html_bruto, pdf_text, updated_at FROM marinas WHERE id = %s",
-        (marina_id,),
-    )
+        "SELECT tarifas_json, updated_at FROM marinas WHERE id = %s",
+        (marina_id,))
     row = cur.fetchone()
     cur.close()
     conn.close()
 
-    if not row:
-        return {"error": "Marina no encontrada"}
+    if not row or not row["tarifas_json"]:
+        return {"error": "Tarifas no encontradas"}
 
     return {
         "id": marina_id,
-        "html_bruto": row["html_bruto"],  # puede ser None
-        "pdf_text": row["pdf_text"],  # puede ser None
-        "updated_at": row["updated_at"].isoformat(),
+        "tarifas": row["tarifas_json"],  # ← ligero
+        "updated_at": row["updated_at"].isoformat()
     }
 
 
