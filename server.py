@@ -96,36 +96,35 @@ async def trigger_scrape() -> dict:
 
             if is_pdf:
                 pdf_val = await fetch_pdf_text(url)
-                html_val = None
                 tarifas = extract_pdf_prices(pdf_val, marina_id=marina_id)
             else:
-                html_val = await fetch_html(url)
+                _html = await fetch_html(url)  # solo para parsear
                 pdf_val = None
-                tarifas = extract_html_prices(html_val, marina_id=marina_id)
+                tarifas = extract_html_prices(_html, marina_id=marina_id)
 
             cur.execute(
                 """
-                INSERT INTO marinas (id, html_bruto, pdf_text, tarifas_json, updated_at)
-                VALUES (%s,%s,%s,%s,%s)
-                ON CONFLICT (id) DO UPDATE SET
-                    tarifas_json = EXCLUDED.tarifas_json,
-                    updated_at   = EXCLUDED.updated_at
-                """,
-                (marina_id, html_val, pdf_val, json.dumps(tarifas), now)
+            INSERT INTO marinas (id, pdf_text, tarifas_json, updated_at)
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (id) DO UPDATE
+                SET pdf_text     = EXCLUDED.pdf_text,
+                tarifas_json = EXCLUDED.tarifas_json,
+                updated_at   = EXCLUDED.updated_at
+            """,
+                (marina_id, pdf_val, json.dumps(tarifas, ensure_ascii=False), now)
             )
 
             # ───── insert en histórico ─────
             cur.execute(
                 """
-                INSERT INTO marinas_history (id, html_bruto, pdf_text, updated_at)
+                INSERT INTO marinas_history (id, pdf_text, tarifas_json, updated_at)
                 VALUES (%s, %s, %s, %s)
                 """,
-                (marina_id, html_val, pdf_val, now),
+                (marina_id, pdf_val, json.dumps(tarifas, ensure_ascii=False), now)
             )
 
             updated.append({
                 "id": marina_id,
-                "html_len": len(html_val or ""),
                 "pdf_len": len(pdf_val or ""),
             })
 
@@ -145,8 +144,7 @@ def get_marina_content(marina_id: str) -> dict:
     conn = get_conn()
     cur = conn.cursor()
     cur.execute(
-        "SELECT pdf_text, tarifas_json, updated_at "
-        "FROM marinas WHERE id = %s",
+        "SELECT pdf_text, tarifas_json, updated_at FROM marinas WHERE id = %s",
         (marina_id,),
     )
     row = cur.fetchone()
@@ -158,7 +156,6 @@ def get_marina_content(marina_id: str) -> dict:
 
     return {
         "id": marina_id,
-        # "html_bruto": row["html_bruto"],
         "pdf_text": row["pdf_text"],
         "tarifas": row["tarifas_json"],
         "updated_at": row["updated_at"].isoformat(),
