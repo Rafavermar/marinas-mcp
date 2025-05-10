@@ -218,4 +218,4 @@ El flujo de trabajo se dispara al hacer push en `main`, y **no** cubre despliegu
 
 ## Licencia
 
-MIT (o la que decidas)
+Apache License 2.0
