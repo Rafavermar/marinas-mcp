@@ -22,10 +22,11 @@ def _extract_benalmadena(html: str) -> dict:
     for tr in tbl.select("tbody tr")[2:]:  # saltamos cabeceras 0-1
         cells = [c.get_text(strip=True) for c in tr.select("td")]
         eslora = _clean(cells[0])
+        manga = _clean(cells[1])
         baja = _clean(cells[3])
         alta = _clean(cells[2])
         # este puerto NO tiene “media”; ponemos None
-        rows.append([eslora, baja, None, alta])
+        rows.append([eslora, manga, baja, None, alta])
 
     return {"temporadas": ["baja", "media", "alta"],
             "rows": rows}

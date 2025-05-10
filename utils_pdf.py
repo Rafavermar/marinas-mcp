@@ -5,6 +5,7 @@ import pdfplumber
 import re
 from utils_html import _clean
 
+
 async def fetch_pdf_text(url: str) -> str:
     async with httpx.AsyncClient(timeout=30) as client:
         r = await client.get(url, follow_redirects=True)
@@ -12,6 +13,7 @@ async def fetch_pdf_text(url: str) -> str:
         pdf_bytes = r.content
     with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
         return "\n".join(page.extract_text() or "" for page in pdf.pages)
+
 
 def extract_pdf_prices(text: str, marina_id: str) -> dict:
     """
@@ -47,9 +49,9 @@ def extract_pdf_prices(text: str, marina_id: str) -> dict:
             return None
 
         eslora = safe(0)
-        baja   = safe(1)
-        media  = safe(2)
-        alta   = safe(3)
+        baja = safe(1)
+        media = safe(2)
+        alta = safe(3)
 
         rows.append([eslora, baja, media, alta])
 
